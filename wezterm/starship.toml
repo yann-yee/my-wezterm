@@ -1,0 +1,53 @@
+add_newline = true
+command_timeout = 1000
+right_format = "$status$jobs$time"
+
+format = """
+[╭─](bright-black)$directory$git_branch$git_status$cmd_duration
+[╰─](bright-black)$character"""
+
+[character]
+success_symbol = "[❯](bold green)"
+error_symbol = "[❯](bold red)"
+vimcmd_symbol = "[❮](bold yellow)"
+
+[directory]
+style = "bold blue"
+truncation_length = 3
+truncate_to_repo = false
+read_only = " 󰌾"
+
+[git_branch]
+style = "bold purple"
+format = " on [$symbol$branch]($style)"
+
+[git_status]
+style = "bold yellow"
+format = " [$all_status$ahead_behind]($style)"
+
+[cmd_duration]
+style = "bold bright-black"
+format = " took [$duration]($style)"
+
+[status]
+disabled = false
+style = "bold red"
+symbol = "✘ "
+format = "[$symbol$status]($style) "
+
+[jobs]
+style = "bold cyan"
+symbol = "+"
+format = "[$symbol$number]($style) "
+
+[time]
+disabled = false
+style = "bright-black"
+format = "[$time]($style)"
+time_format = "%H:%M"
+
+[username]
+show_always = false
+
+[hostname]
+ssh_only = true

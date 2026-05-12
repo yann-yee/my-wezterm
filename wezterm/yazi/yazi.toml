@@ -1,0 +1,16 @@
+[mgr]
+ratio = [0, 1, 0]
+mouse_events = ["click", "scroll", "touch", "move", "drag"]
+
+[[opener.edit]]
+run = "powershell.exe -NoProfile -ExecutionPolicy Bypass -File \"%USERPROFILE%\\.wezterm-config\\wezterm\\scripts\\open-in-nvim.ps1\" -Mode tab \"%s\""
+block = false
+for = "windows"
+desc = "Open in a Neovim tab"
+
+[open]
+prepend_rules = [
+  { mime = "text/*", use = "edit" },
+  { mime = "application/json", use = "edit" },
+  { mime = "application/xml", use = "edit" },
+]

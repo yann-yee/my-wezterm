@@ -1,0 +1,50 @@
+[icon]
+dirs = [
+  { name = ".git", text = "󰊢" },
+  { name = "src", text = "󱃭" },
+  { name = "tests", text = "󰙨" },
+  { name = "test", text = "󰙨" },
+  { name = "docs", text = "󰈙" },
+  { name = "assets", text = "󰉉" },
+  { name = "build", text = "" },
+  { name = "dist", text = "󰉍" },
+  { name = "node_modules", text = "" },
+]
+
+files = [
+  { name = "README.md", text = "󰂺" },
+  { name = "LICENSE", text = "" },
+  { name = "Makefile", text = "" },
+]
+
+exts = [
+  { name = "rs", text = "" },
+  { name = "lua", text = "" },
+  { name = "py", text = "" },
+  { name = "js", text = "" },
+  { name = "ts", text = "" },
+  { name = "json", text = "" },
+  { name = "toml", text = "" },
+  { name = "yaml", text = "" },
+  { name = "yml", text = "" },
+  { name = "md", text = "󰈙" },
+  { name = "png", text = "󰉏" },
+  { name = "jpg", text = "󰉏" },
+  { name = "jpeg", text = "󰉏" },
+  { name = "gif", text = "󰉏" },
+  { name = "pdf", text = "󰈦" },
+  { name = "zip", text = "󰗄" },
+  { name = "tar", text = "󰗄" },
+  { name = "gz", text = "󰗄" },
+  { name = "exe", text = "󰍛" },
+  { name = "sh", text = "" },
+  { name = "ps1", text = "󰨊" },
+  { name = "c", text = "" },
+  { name = "cpp", text = "" },
+  { name = "h", text = "" },
+]
+
+[cmp]
+icon_file = "󰈚"
+icon_folder = "󰉋"
+icon_command = "󰘳"
