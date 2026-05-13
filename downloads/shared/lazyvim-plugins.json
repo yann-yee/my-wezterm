@@ -1,0 +1,167 @@
+[
+  {
+    "name": "blink.cmp",
+    "repository": "saghen/blink.cmp",
+    "commit": "78336bc89ee5365633bcf754d93df01678b5c08f"
+  },
+  {
+    "name": "bufferline.nvim",
+    "repository": "akinsho/bufferline.nvim",
+    "commit": "655133c3b4c3e5e05ec549b9f8cc2894ac6f51b3"
+  },
+  {
+    "name": "catppuccin",
+    "repository": "catppuccin/nvim",
+    "commit": "426dbebe06b5c69fd846ceb17b42e12f890aedf1"
+  },
+  {
+    "name": "conform.nvim",
+    "repository": "stevearc/conform.nvim",
+    "commit": "dca1a190aa85f9065979ef35802fb77131911106"
+  },
+  {
+    "name": "flash.nvim",
+    "repository": "folke/flash.nvim",
+    "commit": "fcea7ff883235d9024dc41e638f164a450c14ca2"
+  },
+  {
+    "name": "friendly-snippets",
+    "repository": "rafamadriz/friendly-snippets",
+    "commit": "6cd7280adead7f586db6fccbd15d2cac7e2188b9"
+  },
+  {
+    "name": "fzf-lua",
+    "repository": "ibhagwan/fzf-lua",
+    "commit": "97376e364f51f1b5ae3efaa3eb2e929430ca8419"
+  },
+  {
+    "name": "gitsigns.nvim",
+    "repository": "lewis6991/gitsigns.nvim",
+    "commit": "dd3f588bacbeb041be6facf1742e42097f62165d"
+  },
+  {
+    "name": "grug-far.nvim",
+    "repository": "MagicDuck/grug-far.nvim",
+    "commit": "21790e59dd0109a92a70cb874dd002af186314f5"
+  },
+  {
+    "name": "lazydev.nvim",
+    "repository": "folke/lazydev.nvim",
+    "commit": "ff2cbcba459b637ec3fd165a2be59b7bbaeedf0d"
+  },
+  {
+    "name": "LazyVim",
+    "repository": "LazyVim/LazyVim",
+    "commit": "7c1301b89563198d1b2a295e673f6a7205adc076"
+  },
+  {
+    "name": "lualine.nvim",
+    "repository": "nvim-lualine/lualine.nvim",
+    "commit": "131a558e13f9f28b15cd235557150ccb23f89286"
+  },
+  {
+    "name": "mason-lspconfig.nvim",
+    "repository": "mason-org/mason-lspconfig.nvim",
+    "commit": "eaa34887d444cb002e1b165fac399ae4bbc771f7"
+  },
+  {
+    "name": "mason.nvim",
+    "repository": "mason-org/mason.nvim",
+    "commit": "e54f5bf5f12c560da31c17eee5b3e1bd369f3ff9"
+  },
+  {
+    "name": "mini.ai",
+    "repository": "nvim-mini/mini.ai",
+    "commit": "a783ce6e1a5b3bc90519f20b51f4a5f6702734af"
+  },
+  {
+    "name": "mini.icons",
+    "repository": "nvim-mini/mini.icons",
+    "commit": "9c7b1b90b15bdd69c52f6e31889dbc9987c30ec4"
+  },
+  {
+    "name": "mini.pairs",
+    "repository": "nvim-mini/mini.pairs",
+    "commit": "30cf2f01c4aaa2033db67376b9924fa2442c05d6"
+  },
+  {
+    "name": "noice.nvim",
+    "repository": "folke/noice.nvim",
+    "commit": "7bfd942445fb63089b59f97ca487d605e715f155"
+  },
+  {
+    "name": "nui.nvim",
+    "repository": "MunifTanjim/nui.nvim",
+    "commit": "de740991c12411b663994b2860f1a4fd0937c130"
+  },
+  {
+    "name": "nvim-lint",
+    "repository": "mfussenegger/nvim-lint",
+    "commit": "eab58b48eb11d7745c11c505e0f3057165902461"
+  },
+  {
+    "name": "nvim-lspconfig",
+    "repository": "neovim/nvim-lspconfig",
+    "commit": "451d4ef9abd4f0f08e379ef0d55d1c391b6125a7"
+  },
+  {
+    "name": "nvim-treesitter",
+    "repository": "nvim-treesitter/nvim-treesitter",
+    "commit": "4916d6592ede8c07973490d9322f187e07dfefac"
+  },
+  {
+    "name": "nvim-treesitter-textobjects",
+    "repository": "nvim-treesitter/nvim-treesitter-textobjects",
+    "commit": "851e865342e5a4cb1ae23d31caf6e991e1c99f1e"
+  },
+  {
+    "name": "nvim-ts-autotag",
+    "repository": "windwp/nvim-ts-autotag",
+    "commit": "88c1453db4ba7dd24131086fe51fdf74e587d275"
+  },
+  {
+    "name": "nvim-web-devicons",
+    "repository": "nvim-tree/nvim-web-devicons",
+    "commit": "2795c26c916bb3c57dde308b82be51971fa92747"
+  },
+  {
+    "name": "persistence.nvim",
+    "repository": "folke/persistence.nvim",
+    "commit": "b20b2a7887bd39c1a356980b45e03250f3dce49c"
+  },
+  {
+    "name": "plenary.nvim",
+    "repository": "nvim-lua/plenary.nvim",
+    "commit": "74b06c6c75e4eeb3108ec01852001636d85a932b"
+  },
+  {
+    "name": "snacks.nvim",
+    "repository": "folke/snacks.nvim",
+    "commit": "ad9ede6a9cddf16cedbd31b8932d6dcdee9b716e"
+  },
+  {
+    "name": "todo-comments.nvim",
+    "repository": "folke/todo-comments.nvim",
+    "commit": "31e3c38ce9b29781e4422fc0322eb0a21f4e8668"
+  },
+  {
+    "name": "tokyonight.nvim",
+    "repository": "folke/tokyonight.nvim",
+    "commit": "cdc07ac78467a233fd62c493de29a17e0cf2b2b6"
+  },
+  {
+    "name": "trouble.nvim",
+    "repository": "folke/trouble.nvim",
+    "commit": "bd67efe408d4816e25e8491cc5ad4088e708a69a"
+  },
+  {
+    "name": "ts-comments.nvim",
+    "repository": "folke/ts-comments.nvim",
+    "commit": "123a9fb12e7229342f807ec9e6de478b1102b041"
+  },
+  {
+    "name": "which-key.nvim",
+    "repository": "folke/which-key.nvim",
+    "commit": "3aab2147e74890957785941f0c1ad87d0a44c15a"
+  }
+]

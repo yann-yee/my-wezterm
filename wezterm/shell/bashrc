@@ -1,170 +1,69 @@
-WEZTERM_CONFIG_ROOT_WIN=${WEZTERM_CONFIG_ROOT:-"$HOME/.wezterm-config/wezterm"}
+export WEZTERM_TOOLS_ROOT_WIN="${WEZTERM_TOOLS_ROOT:-C:/Users/qwer/Desktop/WezTerm/Tools}"
 
 if command -v cygpath >/dev/null 2>&1; then
-  WEZTERM_CONFIG_ROOT=$(cygpath -u "$WEZTERM_CONFIG_ROOT_WIN")
+  export WEZTERM_TOOLS_ROOT="$(cygpath -u "$WEZTERM_TOOLS_ROOT_WIN")"
 else
-  WEZTERM_CONFIG_ROOT=$WEZTERM_CONFIG_ROOT_WIN
+  export WEZTERM_TOOLS_ROOT="${WEZTERM_TOOLS_ROOT_WIN//\\//}"
 fi
 
-export WEZTERM_CONFIG_ROOT
+if [[ -z ${USER-} ]] && [[ -n ${USERNAME-} ]]; then
+  export USER="$USERNAME"
+fi
 
-BAT_DIR="$WEZTERM_CONFIG_ROOT/tools/windows/bat/bat-v0.26.1-x86_64-pc-windows-msvc"
-EZA_DIR="$WEZTERM_CONFIG_ROOT/tools/windows/eza"
-YAZI_DIR="$WEZTERM_CONFIG_ROOT/tools/windows/yazi/yazi-x86_64-pc-windows-msvc"
+prepend_path() {
+  local candidate="$1"
 
-PATH="$BAT_DIR:$EZA_DIR:$YAZI_DIR:$PATH"
+  if [ -d "$candidate" ]; then
+    PATH="$candidate:$PATH"
+  fi
+}
+
+prepend_path "$WEZTERM_TOOLS_ROOT"
+prepend_path "$WEZTERM_TOOLS_ROOT/nvim/bin"
+prepend_path "$WEZTERM_TOOLS_ROOT/ripgrep"
+prepend_path "$WEZTERM_TOOLS_ROOT/fd"
+prepend_path "$WEZTERM_TOOLS_ROOT/lazygit"
+prepend_path "$WEZTERM_TOOLS_ROOT/yazi"
+prepend_path "$WEZTERM_TOOLS_ROOT/bat"
+prepend_path "$WEZTERM_TOOLS_ROOT/eza"
+prepend_path "$WEZTERM_TOOLS_ROOT/starship"
+
 export PATH
-
-mkdir -p "$HOME/.ssh/cm"
-
-export HISTSIZE=50000
-export HISTFILESIZE=100000
-export HISTCONTROL=ignoreboth:erasedups
-export HISTTIMEFORMAT='%F %T  '
-
-shopt -s histappend checkwinsize autocd cdspell dirspell globstar
-bind 'set completion-ignore-case on'
-bind 'set completion-map-case on'
-bind 'set show-all-if-ambiguous on'
-bind 'set colored-stats on'
-bind 'set visible-stats on'
-bind 'set mark-symlinked-directories on'
-bind 'set menu-complete-display-prefix on'
-bind 'TAB:menu-complete'
-bind '"\e[Z": menu-complete-backward'
-bind '"\e[A": history-search-backward'
-bind '"\e[B": history-search-forward'
-
-for completion_script in \
-  /mingw64/share/bash-completion/bash_completion \
-  /usr/share/bash-completion/bash_completion \
-  /etc/bash_completion; do
-  if [ -r "$completion_script" ]; then
-    # shellcheck disable=SC1090
-    source "$completion_script"
-    break
-  fi
-done
-
-for completion_script in \
-  /mingw64/share/git/completion/git-completion.bash \
-  /usr/share/git/completion/git-completion.bash; do
-  if [ -r "$completion_script" ]; then
-    # shellcheck disable=SC1090
-    source "$completion_script"
-    break
-  fi
-done
-
-export BAT_THEME=TwoDark
-export STARSHIP_CONFIG="$WEZTERM_CONFIG_ROOT/starship.toml"
-export YAZI_CONFIG_HOME="$WEZTERM_CONFIG_ROOT/yazi"
-
-export GIT_PAGER="less -R"
-export GIT_EDITOR="nvim"
-export VISUAL="nvim"
 export EDITOR="nvim"
+export VISUAL="nvim"
+export GIT_EDITOR="nvim"
+export STARSHIP_CONFIG="${STARSHIP_CONFIG:-$HOME/.wezterm-config/wezterm/starship.toml}"
 
-if command -v file.exe >/dev/null 2>&1; then
-  export YAZI_FILE_ONE="$(command -v file.exe)"
+if [[ $- == *i* ]] && [[ -r "$WEZTERM_TOOLS_ROOT/ble.sh/ble.sh" ]]; then
+  source -- "$WEZTERM_TOOLS_ROOT/ble.sh/ble.sh" --attach=none
+fi
+
+alias vim='nvim'
+alias lg='lazygit'
+alias y='yazi'
+alias ..='cd ..'
+alias gs='git status -sb'
+
+if command -v eza >/dev/null 2>&1; then
+  alias ls='eza --group-directories-first'
+  alias ll='eza -la --group-directories-first'
+fi
+
+if command -v bat >/dev/null 2>&1; then
+  alias cat='bat --paging=never'
 fi
 
 if command -v starship >/dev/null 2>&1; then
-  source <(starship completions bash)
   eval "$(starship init bash)"
+  if declare -F starship_precmd >/dev/null 2>&1; then
+    starship_precmd
+  fi
 fi
 
-wezterm_prompt_divider() {
-  local last_status=$?
-  [[ $- != *i* ]] && return "$last_status"
-  [[ ${WEZTERM_PROMPT_DIVIDER:-1} == 0 ]] && return "$last_status"
-
-  local columns=${COLUMNS:-80}
-  local half denom i r g b
-  (( columns < 20 )) && columns=20
-  half=$((columns / 2))
-  (( half < 1 )) && half=1
-
-  for ((i = 0; i < columns; i++)); do
-    if (( i < half )); then
-      denom=$((half > 1 ? half - 1 : 1))
-      r=$((30 + (54 * i / denom)))
-      g=$((39 + (34 * i / denom)))
-      b=$((64 + (72 * i / denom)))
-    else
-      denom=$((columns - half > 1 ? columns - half - 1 : 1))
-      r=$((84 - (36 * (i - half) / denom)))
-      g=$((73 + (26 * (i - half) / denom)))
-      b=$((136 + (34 * (i - half) / denom)))
-    fi
-    printf '\033[48;2;%d;%d;%dm \033[0m' "$r" "$g" "$b"
-  done
-  printf '\n'
-  return "$last_status"
-}
-
-case ";${PROMPT_COMMAND-};" in
-  *';wezterm_prompt_divider;'*) ;;
-  *) PROMPT_COMMAND="wezterm_prompt_divider${PROMPT_COMMAND:+;$PROMPT_COMMAND}" ;;
-esac
-
-cat() {
-  "$BAT_DIR/bat.exe" --paging=never "$@"
-}
-
-bat() {
-  "$BAT_DIR/bat.exe" "$@"
-}
-
-eza() {
-  "$EZA_DIR/eza.exe" "$@"
-}
-
-ls() {
-  eza --icons=always --group-directories-first "$@"
-}
-
-ll() {
-  eza -lah --git --icons=always --group-directories-first "$@"
-}
-
-tree() {
-  eza --tree --level="${TREE_LEVEL:-3}" --icons=always --group-directories-first "$@"
-}
-
-nvim() {
-  if [[ $# -gt 0 && -n ${WEZTERM_PANE-} ]]; then
-    local target=${@: -1}
-    if [[ -e $target && $target != -* ]]; then
-      powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$WEZTERM_CONFIG_ROOT_WIN\\scripts\\open-in-nvim.ps1" "$target"
-      return
-    fi
-  fi
-  XDG_CONFIG_HOME="$WEZTERM_CONFIG_ROOT" command nvim "$@"
-}
-
-vim() {
-  nvim "$@"
-}
-
-alias c='clear'
-alias ..='cd ..'
-alias gs='git status -sb'
-alias ga='git add'
-alias gc='git commit'
-alias gp='git push'
-alias gl='git pull'
-alias lg='lazygit'
-alias y='yazi'
-alias sshv='ssh -vvv'
-alias ssh-clean='rm -f "$HOME"/.ssh/cm/* 2>/dev/null || true'
-
-ssh-hosts() {
-  awk '
-    tolower($1) == "host" {
-      for (idx = 2; idx <= NF; idx++) {
-        if ($idx !~ /[*?]/) print $idx
-      }
-    }
-  ' "$HOME/.ssh/config" 2>/dev/null | sort -u
-}
+if [[ $- == *i* ]] && [[ -n ${BLE_VERSION-} ]]; then
+  bleopt complete_auto_delay=120
+  bleopt prompt_eol_mark=''
+  bleopt exec_errexit_mark=
+  bleopt exec_elapsed_mark=
+  ble-attach
+fi

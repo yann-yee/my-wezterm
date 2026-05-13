@@ -1,582 +1,239 @@
 local wezterm = require("wezterm")
 
 local config = wezterm.config_builder and wezterm.config_builder() or {}
-local act = wezterm.action
 
-local home = os.getenv("USERPROFILE") or wezterm.home_dir or ""
-local config_root = home .. "\\.wezterm-config\\wezterm"
+local palette = {
+	background = "#09111d",
+	background_alt = "#121e31",
+	chrome = "#132136",
+	chrome_inactive = "#0d1727",
+	path_band = "#315f84",
+	path_glow = "#62567f",
+	accent = "#f4c084",
+	accent_soft = "#8e5a72",
+	text = "#e8edf6",
+	muted = "#97a8c2",
+	selection = "#26456a",
+	error = "#ff8f7a",
+	success = "#81d4b3",
+}
+
+local tab_palette = {
+	{ active = "#315f84", hover = "#3f759f", inactive = "#1f3248" },
+	{ active = "#6d557f", hover = "#83679a", inactive = "#33263e" },
+	{ active = "#7d5f4b", hover = "#9a755c", inactive = "#3d2c24" },
+	{ active = "#3f6f67", hover = "#50887e", inactive = "#203831" },
+	{ active = "#7b4f67", hover = "#955f7d", inactive = "#3a2432" },
+}
+
+local user_profile = os.getenv("USERPROFILE")
+local tools_root = os.getenv("WEZTERM_TOOLS_ROOT") or "C:\\Users\\qwer\\Desktop\\WezTerm\\Tools"
+local config_root = user_profile and (user_profile .. "\\.wezterm-config\\wezterm") or nil
 local git_bash = "C:\\Program Files\\Git\\bin\\bash.exe"
-local bash_rc = config_root .. "\\shell\\bashrc"
-local yazi_exe = config_root .. "\\tools\\windows\\yazi\\yazi-x86_64-pc-windows-msvc\\yazi.exe"
-local lazygit_exe = config_root .. "\\tools\\windows\\lazygit\\lazygit.exe"
-local jump_script = config_root .. "\\scripts\\jump-to-definition.ps1"
+local bash_rc = config_root and (config_root .. "\\shell\\bashrc") or nil
+local starship_config = config_root and (config_root .. "\\starship.toml") or nil
+local font_root = tools_root .. "\\JetBrainsMono"
 
-local function uri_to_path(uri)
-  local path = uri.file_path or tostring(uri or "")
-  path = path:gsub("^file://", "")
-  path = path:gsub("%%20", " ")
-  path = path:gsub("^/([A-Za-z]):", "%1:")
-  path = path:gsub("/", "\\")
-  return path
+local function file_exists(path)
+	local handle = io.open(path, "r")
+	if handle then
+		handle:close()
+		return true
+	end
+
+	return false
 end
 
-local function tab_title(tab_info)
-  local title = tab_info.tab_title
-  if title and #title > 0 then
-    return title
-  end
-
-  local pane = tab_info.active_pane
-  local process_name = pane.foreground_process_name or pane.title or ""
-  if #process_name > 0 then
-    return process_name:match("[^/\\]+$") or process_name
-  end
-
-  return pane.title
+local function path_join(...)
+	return table.concat({ ... }, ";")
 end
 
-local function jump_to_symbol(window, pane, target)
-  local symbol = window:get_selection_text_for_pane(pane) or ""
-  symbol = symbol:gsub("^%s+", ""):gsub("%s+$", "")
-  symbol = symbol:match("([%w_][%w_%.:]*)") or ""
+local function tab_title(tab)
+	local title = tab.tab_title
+	if not title or #title == 0 then
+		title = tab.active_pane.title
+	end
 
-  if #symbol == 0 then
-    window:toast_notification("WezTerm", "先选中一个函数或符号", nil, 2000)
-    return
-  end
-
-  local cwd = pane:get_current_working_dir()
-  local root = uri_to_path(cwd)
-
-  local success, _stdout, stderr = wezterm.run_child_process({
-    "powershell.exe",
-    "-NoProfile",
-    "-ExecutionPolicy",
-    "Bypass",
-    "-File",
-    jump_script,
-    "-Root",
-    root,
-    "-Symbol",
-    symbol,
-    "-Target",
-    target,
-  })
-
-  if not success then
-    window:toast_notification("WezTerm", stderr or ("未找到符号: " .. symbol), nil, 3000)
-  end
+	return title
 end
 
-local function jump_to_definition(window, pane)
-  jump_to_symbol(window, pane, "Definition")
+local function tab_colors(tab)
+	return tab_palette[(tab.tab_index % #tab_palette) + 1]
 end
 
-local function jump_to_declaration(window, pane)
-  jump_to_symbol(window, pane, "Declaration")
-end
+wezterm.on("format-tab-title", function(tab, _, _, _, hover, max_width)
+	local title = wezterm.truncate_right(tab_title(tab), math.max(max_width - 8, 6))
+	local colors = tab_colors(tab)
+	local bg = colors.inactive
+	local fg = palette.muted
 
-local function toggle_tree_pane(window, pane)
-  local process_name = pane:get_foreground_process_name() or ""
-  process_name = process_name:lower()
+	if tab.is_active then
+		bg = colors.active
+		fg = palette.text
+	elseif hover then
+		bg = colors.hover
+		fg = palette.text
+	end
 
-  if process_name:match("yazi%.exe$") or process_name:match("yazi$") then
-    window:perform_action(act.CloseCurrentPane({ confirm = false }), pane)
-    return
-  end
-
-  local cwd = pane:get_current_working_dir()
-  local args = { yazi_exe }
-  if cwd and cwd.file_path then
-    args[#args + 1] = uri_to_path(cwd)
-  end
-
-  window:perform_action(
-    act.SplitPane({
-      direction = "Left",
-      size = { Percent = 30 },
-      command = { args = args },
-    }),
-    pane
-  )
-end
-
-wezterm.on("format-tab-title", function(tab_info, _tabs, _panes, _config, _hover, max_width)
-  local title = wezterm.truncate_right(tab_title(tab_info), math.max(16, max_width - 8))
-  local index = tostring(tab_info.tab_index + 1)
-  local edge = tab_info.is_active and "#7AA2F7" or "#3B4261"
-  local bg = tab_info.is_active and "#24283B" or "#1A1B26"
-  local fg = tab_info.is_active and "#C0CAF5" or "#8C96B8"
-
-  return {
-    { Background = { Color = bg } },
-    { Foreground = { Color = edge } },
-    { Text = " " .. index .. " " },
-    { Foreground = { Color = fg } },
-    { Text = title .. " " },
-  }
+	return {
+		{ Background = { Color = palette.chrome } },
+		{ Foreground = { Color = bg }, Text = "" },
+		{ Background = { Color = bg }, Foreground = { Color = fg }, Text = string.format(" %d %s ", tab.tab_index + 1, title) },
+		{ Foreground = { Color = bg }, Text = "" },
+		{ Background = { Color = palette.chrome }, Text = " " },
+	}
 end)
 
-wezterm.on("update-right-status", function(window, pane)
-  local cwd = pane:get_current_working_dir()
-  local cwd_text = ""
-
-  if cwd then
-    cwd_text = cwd.file_path or tostring(cwd)
-    cwd_text = cwd_text:gsub("^file://", "")
-    cwd_text = cwd_text:gsub("%%20", " ")
-    cwd_text = cwd_text:gsub("^/([A-Za-z]):", "%1:")
-    cwd_text = cwd_text:gsub("\\", "/")
-    cwd_text = cwd_text:match("([^/]+)$") or cwd_text
-  end
-
-  window:set_right_status(wezterm.format({
-    { Foreground = { Color = "#565F89" } },
-    { Text = " " .. cwd_text .. " " },
-  }))
-end)
-
-config.default_prog = {
-  git_bash,
-  "--noprofile",
-  "--rcfile",
-  bash_rc,
-  "-i",
+local tool_paths = {
+	tools_root,
+	tools_root .. "\\nvim\\bin",
+	tools_root .. "\\ripgrep",
+	tools_root .. "\\fd",
+	tools_root .. "\\lazygit",
+	tools_root .. "\\yazi",
+	tools_root .. "\\bat",
+	tools_root .. "\\eza",
+	tools_root .. "\\starship",
 }
 
-config.launch_menu = {
-  {
-    label = "Git Bash",
-    args = {
-      git_bash,
-      "--noprofile",
-      "--rcfile",
-      bash_rc,
-      "-i",
-    },
-  },
-  {
-    label = "Git Dashboard (lazygit)",
-    args = { lazygit_exe },
-  },
-  {
-    label = "PowerShell",
-    args = { "powershell.exe", "-NoLogo" },
-  },
-  {
-    label = "Command Prompt",
-    args = { "cmd.exe" },
-  },
-}
-
-config.set_environment_variables = {
-  WEZTERM_CONFIG_ROOT = config_root,
-  YAZI_CONFIG_HOME = config_root .. "\\yazi",
-  YAZI_FILE_ONE = "C:\\Program Files\\Git\\usr\\bin\\file.exe",
-  TERM = "xterm-256color",
-  COLORTERM = "truecolor",
-}
-
-config.default_cwd = home
-config.color_scheme = "Tokyo Night Moon"
-config.initial_cols = 120
-config.initial_rows = 34
-config.font_dirs = {
-  config_root .. "\\fonts",
-}
-config.font = wezterm.font_with_fallback({
-  "JetBrainsMono Nerd Font Mono",
-  "JetBrainsMono Nerd Font",
-  "JetBrainsMonoNL Nerd Font Mono",
-  "JetBrainsMonoNL Nerd Font",
-  "Cascadia Code",
-  "Consolas",
-})
-config.font_size = 11.0
-config.line_height = 1.08
-config.window_padding = {
-  left = 6,
-  right = 6,
-  top = 1,
-  bottom = 4,
-}
-config.scrollback_lines = 50000
-config.adjust_window_size_when_changing_font_size = false
-config.default_cursor_style = "BlinkingBar"
-config.window_background_opacity = 0.94
-config.text_background_opacity = 1.0
-config.inactive_pane_hsb = {
-  saturation = 0.9,
-  brightness = 0.72,
-}
-config.pane_focus_follows_mouse = true
-config.enable_tab_bar = true
-config.use_fancy_tab_bar = false
-config.show_tabs_in_tab_bar = true
-config.show_new_tab_button_in_tab_bar = false
-config.hide_tab_bar_if_only_one_tab = false
-config.tab_bar_at_bottom = false
-config.tab_max_width = 48
-config.window_decorations = "INTEGRATED_BUTTONS|RESIZE"
-config.integrated_title_buttons = { "Hide", "Maximize", "Close" }
-config.integrated_title_button_alignment = "Right"
-config.integrated_title_button_style = "Windows"
-config.integrated_title_button_color = "Auto"
-config.window_frame = {
-  font_size = 9,
-  font = wezterm.font({ family = "JetBrainsMono Nerd Font Mono", weight = "Medium" }),
-  active_titlebar_bg = "#1A1B26",
-  inactive_titlebar_bg = "#16161E",
-}
-config.colors = {
-  foreground = "#C0CAF5",
-  background = "#1A1B26",
-  cursor_bg = "#7AA2F7",
-  cursor_fg = "#1A1B26",
-  cursor_border = "#7AA2F7",
-  selection_fg = "#C0CAF5",
-  selection_bg = "#33467C",
-  scrollbar_thumb = "#3B4261",
-  split = "#3B4261",
-  tab_bar = {
-    background = "#1A1B26",
-    active_tab = {
-      bg_color = "#2F3549",
-      fg_color = "#C0CAF5",
-      intensity = "Bold",
-    },
-    inactive_tab = {
-      bg_color = "#1A1B26",
-      fg_color = "#7AA2F7",
-    },
-    inactive_tab_hover = {
-      bg_color = "#24283B",
-      fg_color = "#C0CAF5",
-    },
-  },
-}
-config.command_palette_bg_color = "#1A1B26"
-config.command_palette_fg_color = "#C0CAF5"
-config.window_close_confirmation = "NeverPrompt"
-config.audible_bell = "Disabled"
+config.default_cwd = user_profile
+config.automatically_reload_config = true
 config.check_for_updates = false
-
-local topmost_script = config_root .. "\\scripts\\toggle-topmost.ps1"
-
-config.keys = {
-  {
-    key = "c",
-    mods = "CTRL|SHIFT",
-    action = act.CopyTo("Clipboard"),
-  },
-  {
-    key = "v",
-    mods = "CTRL|SHIFT",
-    action = act.PasteFrom("Clipboard"),
-  },
-  {
-    key = "Insert",
-    mods = "CTRL",
-    action = act.CopyTo("Clipboard"),
-  },
-  {
-    key = "Insert",
-    mods = "SHIFT",
-    action = act.PasteFrom("Clipboard"),
-  },
-  {
-    key = "r",
-    mods = "CTRL|SHIFT",
-    action = act.ReloadConfiguration,
-  },
-  {
-    key = "F11",
-    mods = "NONE",
-    action = act.ToggleFullScreen,
-  },
-  {
-    key = "Enter",
-    mods = "ALT",
-    action = act.ToggleFullScreen,
-  },
-  {
-    key = "p",
-    mods = "CTRL|SHIFT",
-    action = act.ActivateCommandPalette,
-  },
-  {
-    key = "l",
-    mods = "CTRL|SHIFT",
-    action = act.ShowLauncher,
-  },
-  {
-    key = "f",
-    mods = "CTRL|SHIFT",
-    action = act.Search({ CaseInSensitiveString = "" }),
-  },
-  {
-    key = "e",
-    mods = "CTRL|SHIFT",
-    action = act.QuickSelect,
-  },
-  {
-    key = "g",
-    mods = "CTRL|ALT",
-    action = act.QuickSelectArgs({
-      label = "open symbol location",
-      patterns = {
-        "[A-Za-z_][A-Za-z0-9_%.:]*",
-      },
-      action = wezterm.action_callback(jump_to_definition),
-    }),
-  },
-  {
-    key = "d",
-    mods = "CTRL|ALT|SHIFT",
-    action = act.QuickSelectArgs({
-      label = "open symbol declaration",
-      patterns = {
-        "[A-Za-z_][A-Za-z0-9_%.:]*",
-      },
-      action = wezterm.action_callback(jump_to_declaration),
-    }),
-  },
-  {
-    key = "x",
-    mods = "CTRL|SHIFT",
-    action = act.ActivateCopyMode,
-  },
-  {
-    key = "k",
-    mods = "CTRL|SHIFT",
-    action = act.ClearScrollback("ScrollbackAndViewport"),
-  },
-  {
-    key = "n",
-    mods = "CTRL|SHIFT",
-    action = act.SpawnWindow,
-  },
-  {
-    key = "t",
-    mods = "CTRL|SHIFT",
-    action = act.SpawnTab("CurrentPaneDomain"),
-  },
-  {
-    key = "w",
-    mods = "CTRL|SHIFT",
-    action = act.CloseCurrentTab({ confirm = false }),
-  },
-  {
-    key = "Tab",
-    mods = "CTRL",
-    action = act.ActivateTabRelative(1),
-  },
-  {
-    key = "Tab",
-    mods = "CTRL|SHIFT",
-    action = act.ActivateTabRelative(-1),
-  },
-  {
-    key = "LeftArrow",
-    mods = "CTRL|SHIFT",
-    action = act.MoveTabRelative(-1),
-  },
-  {
-    key = "RightArrow",
-    mods = "CTRL|SHIFT",
-    action = act.MoveTabRelative(1),
-  },
-  {
-    key = "PageUp",
-    mods = "SHIFT",
-    action = act.ScrollByPage(-1),
-  },
-  {
-    key = "PageDown",
-    mods = "SHIFT",
-    action = act.ScrollByPage(1),
-  },
-  {
-    key = "UpArrow",
-    mods = "CTRL|SHIFT",
-    action = act.ScrollByLine(-3),
-  },
-  {
-    key = "DownArrow",
-    mods = "CTRL|SHIFT",
-    action = act.ScrollByLine(3),
-  },
-  {
-    key = "=",
-    mods = "CTRL",
-    action = act.IncreaseFontSize,
-  },
-  {
-    key = "+",
-    mods = "CTRL|SHIFT",
-    action = act.IncreaseFontSize,
-  },
-  {
-    key = "-",
-    mods = "CTRL",
-    action = act.DecreaseFontSize,
-  },
-  {
-    key = "0",
-    mods = "CTRL",
-    action = act.ResetFontSize,
-  },
-  {
-    key = "t",
-    mods = "CTRL|ALT",
-    action = wezterm.action_callback(toggle_tree_pane),
-  },
-  {
-    key = "g",
-    mods = "CTRL|ALT|SHIFT",
-    action = act.SplitPane({
-      direction = "Right",
-      size = { Percent = 36 },
-      command = { args = { lazygit_exe } },
-    }),
-  },
-  {
-    key = "y",
-    mods = "CTRL|ALT",
-    action = wezterm.action_callback(function(window, _pane)
-      local success, _stdout, stderr = wezterm.run_child_process({
-        "powershell.exe",
-        "-NoProfile",
-        "-ExecutionPolicy",
-        "Bypass",
-        "-File",
-        topmost_script,
-      })
-
-      if success then
-        window:toast_notification("WezTerm", "已切换置顶", nil, 2000)
-      else
-        window:toast_notification("WezTerm", stderr or "置顶切换失败", nil, 3000)
-      end
-    end),
-  },
-  {
-    key = "Enter",
-    mods = "CTRL|ALT",
-    action = act.SplitVertical({ domain = "CurrentPaneDomain" }),
-  },
-  {
-    key = "\\",
-    mods = "CTRL|ALT",
-    action = act.SplitHorizontal({ domain = "CurrentPaneDomain" }),
-  },
-  {
-    key = "x",
-    mods = "CTRL|ALT",
-    action = act.CloseCurrentPane({ confirm = false }),
-  },
-  {
-    key = "z",
-    mods = "CTRL|ALT",
-    action = act.TogglePaneZoomState,
-  },
-  {
-    key = "h",
-    mods = "CTRL|ALT",
-    action = act.ActivatePaneDirection("Left"),
-  },
-  {
-    key = "j",
-    mods = "CTRL|ALT",
-    action = act.ActivatePaneDirection("Down"),
-  },
-  {
-    key = "k",
-    mods = "CTRL|ALT",
-    action = act.ActivatePaneDirection("Up"),
-  },
-  {
-    key = "l",
-    mods = "CTRL|ALT",
-    action = act.ActivatePaneDirection("Right"),
-  },
-  {
-    key = "LeftArrow",
-    mods = "CTRL|ALT|SHIFT",
-    action = act.AdjustPaneSize({ "Left", 5 }),
-  },
-  {
-    key = "RightArrow",
-    mods = "CTRL|ALT|SHIFT",
-    action = act.AdjustPaneSize({ "Right", 5 }),
-  },
-  {
-    key = "UpArrow",
-    mods = "CTRL|ALT|SHIFT",
-    action = act.AdjustPaneSize({ "Up", 3 }),
-  },
-  {
-    key = "DownArrow",
-    mods = "CTRL|ALT|SHIFT",
-    action = act.AdjustPaneSize({ "Down", 3 }),
-  },
-  {
-    key = ",",
-    mods = "CTRL|ALT",
-    action = act.PromptInputLine({
-      description = "Rename tab",
-      action = wezterm.action_callback(function(window, _pane, line)
-        if line then
-          window:active_tab():set_title(line)
-        end
-      end),
-    }),
-  },
-  {
-    key = "1",
-    mods = "ALT",
-    action = act.ActivateTab(0),
-  },
-  {
-    key = "2",
-    mods = "ALT",
-    action = act.ActivateTab(1),
-  },
-  {
-    key = "3",
-    mods = "ALT",
-    action = act.ActivateTab(2),
-  },
-  {
-    key = "4",
-    mods = "ALT",
-    action = act.ActivateTab(3),
-  },
-  {
-    key = "5",
-    mods = "ALT",
-    action = act.ActivateTab(4),
-  },
-  {
-    key = "6",
-    mods = "ALT",
-    action = act.ActivateTab(5),
-  },
-  {
-    key = "7",
-    mods = "ALT",
-    action = act.ActivateTab(6),
-  },
-  {
-    key = "8",
-    mods = "ALT",
-    action = act.ActivateTab(7),
-  },
-  {
-    key = "9",
-    mods = "ALT",
-    action = act.ActivateTab(8),
-  },
+config.colors = {
+	foreground = palette.text,
+	background = palette.background,
+	cursor_bg = palette.accent,
+	cursor_fg = palette.background,
+	cursor_border = palette.accent,
+	selection_bg = palette.selection,
+	selection_fg = palette.text,
+	scrollbar_thumb = palette.accent_soft,
+	split = palette.path_glow,
+	tab_bar = {
+		background = palette.chrome,
+		active_tab = {
+			bg_color = tab_palette[1].active,
+			fg_color = palette.text,
+			intensity = "Bold",
+		},
+		inactive_tab = {
+			bg_color = tab_palette[1].inactive,
+			fg_color = palette.muted,
+		},
+		inactive_tab_hover = {
+			bg_color = tab_palette[1].hover,
+			fg_color = palette.text,
+		},
+		new_tab = {
+			bg_color = palette.chrome,
+			fg_color = palette.muted,
+		},
+		new_tab_hover = {
+			bg_color = tab_palette[1].hover,
+			fg_color = palette.text,
+		},
+		inactive_tab_edge = palette.chrome,
+	},
 }
+if file_exists(font_root .. "\\JetBrainsMonoNerdFontMono-Regular.ttf") then
+	config.font_dirs = { font_root }
+end
+config.font = wezterm.font_with_fallback({
+	"JetBrainsMono Nerd Font Mono",
+	"JetBrainsMono Nerd Font",
+	"Consolas",
+})
+config.font_size = 12.0
+config.window_background_opacity = 0.88
+config.text_background_opacity = 0.92
+config.win32_system_backdrop = "Acrylic"
+config.window_decorations = "INTEGRATED_BUTTONS|RESIZE"
+config.window_close_confirmation = "NeverPrompt"
+config.integrated_title_button_alignment = "Right"
+config.integrated_title_button_color = "Auto"
+config.integrated_title_button_style = "Gnome"
+config.window_frame = {
+	font = wezterm.font_with_fallback({
+		"JetBrainsMono Nerd Font",
+		"JetBrainsMono Nerd Font Mono",
+	}),
+	font_size = 11.0,
+	active_titlebar_bg = palette.chrome,
+	inactive_titlebar_bg = palette.chrome_inactive,
+	active_titlebar_fg = palette.text,
+	inactive_titlebar_fg = palette.muted,
+}
+config.skip_close_confirmation_for_processes_named = {
+	"bash.exe",
+	"bash",
+	"sh",
+	"zsh",
+	"fish",
+	"tmux",
+	"nu",
+	"cmd.exe",
+	"pwsh.exe",
+	"powershell.exe",
+}
+config.hide_tab_bar_if_only_one_tab = false
+config.show_new_tab_button_in_tab_bar = true
+config.use_fancy_tab_bar = true
+config.tab_max_width = 30
+config.window_padding = {
+	left = 14,
+	right = 14,
+	top = 10,
+	bottom = 12,
+}
+config.set_environment_variables = {
+	WEZTERM_TOOLS_ROOT = tools_root,
+	STARSHIP_CONFIG = starship_config,
+	PATH = path_join(table.concat(tool_paths, ";"), os.getenv("PATH") or ""),
+}
+
+if bash_rc and file_exists(git_bash) and file_exists(bash_rc) then
+	config.default_prog = {
+		git_bash,
+		"--noprofile",
+		"--rcfile",
+		bash_rc,
+		"-i",
+	}
+
+	config.launch_menu = {
+		{
+			label = "Git Bash",
+			args = {
+				git_bash,
+				"--noprofile",
+				"--rcfile",
+				bash_rc,
+				"-i",
+			},
+		},
+		{
+			label = "LazyGit",
+			args = {
+				git_bash,
+				"--noprofile",
+				"--rcfile",
+				bash_rc,
+				"-ic",
+				"exec lazygit",
+			},
+		},
+		{
+			label = "Yazi",
+			args = {
+				git_bash,
+				"--noprofile",
+				"--rcfile",
+				bash_rc,
+				"-ic",
+				"exec yazi",
+			},
+		},
+	}
+end
 
 return config
