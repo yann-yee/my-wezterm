@@ -1,9 +1,15 @@
-export WEZTERM_TOOLS_ROOT_WIN="${WEZTERM_TOOLS_ROOT:-C:/Users/qwer/Desktop/WezTerm/Tools}"
+if [[ -n ${WEZTERM_TOOLS_ROOT-} ]]; then
+  export WEZTERM_TOOLS_ROOT_RAW="$WEZTERM_TOOLS_ROOT"
+elif [[ -n ${WEZTERM_TOOLS_ROOT_WIN-} ]]; then
+  export WEZTERM_TOOLS_ROOT_RAW="$WEZTERM_TOOLS_ROOT_WIN"
+else
+  export WEZTERM_TOOLS_ROOT_RAW="$HOME/WezTerm/Tools"
+fi
 
 if command -v cygpath >/dev/null 2>&1; then
-  export WEZTERM_TOOLS_ROOT="$(cygpath -u "$WEZTERM_TOOLS_ROOT_WIN")"
+  export WEZTERM_TOOLS_ROOT="$(cygpath -u "$WEZTERM_TOOLS_ROOT_RAW")"
 else
-  export WEZTERM_TOOLS_ROOT="${WEZTERM_TOOLS_ROOT_WIN//\\//}"
+  export WEZTERM_TOOLS_ROOT="${WEZTERM_TOOLS_ROOT_RAW//\\//}"
 fi
 
 if [[ -z ${USER-} ]] && [[ -n ${USERNAME-} ]]; then

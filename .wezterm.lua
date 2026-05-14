@@ -1,7 +1,12 @@
 local user_profile = os.getenv("USERPROFILE")
+local home_dir = user_profile or os.getenv("HOME")
 
-if not user_profile then
-  error("USERPROFILE is not set")
+if not home_dir then
+  error("USERPROFILE or HOME is not set")
 end
 
-return dofile(user_profile .. "\\.wezterm-config\\wezterm\\wezterm.lua")
+if user_profile then
+  return dofile(user_profile .. "\\.wezterm-config\\wezterm\\wezterm.lua")
+end
+
+return dofile(home_dir .. "/.wezterm-config/wezterm/wezterm.lua")

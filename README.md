@@ -24,15 +24,20 @@
 如果你需要拉取最新的底层程序二进制压缩包和字体资源：
 \\\powershell
 # 在 Windows 系统下执行
-.\downloads\scripts\install.ps1
+.\downloads\windows\install.ps1
 
 # 在 Linux 系统下执行
-bash ./downloads/scripts/install.sh
+bash ./downloads/linux/install.sh
 \\\
 
 ### 2. 部署与环境生效 💻 (在最终工作目标机上安装)
 
 只要 \downloads\ 目录下存放着已下载好的缓存包，即便断网，在任意目标机器上只需运行配置脚本即可自动完成程序部署。
+
+\
+bash
+./setup.sh
+\
 
 \\\powershell
 .\setup.ps1

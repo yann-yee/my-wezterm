@@ -1,10 +1,27 @@
 param(
-  [string]$ToolsRoot = 'C:\Users\qwer\Desktop\WezTerm\Tools'
+  [string]$ToolsRoot = ''
 )
 
 $ErrorActionPreference = 'Stop'
 
+function Resolve-FileSystemPath {
+  param(
+    [Parameter(Mandatory = $true)]
+    [string]$Path
+  )
+
+  $providerPath = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($Path)
+  return [System.IO.Path]::GetFullPath($providerPath)
+}
+
 $repoRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
+$defaultToolsRoot = '~\WezTerm\Tools'
+
+if ([string]::IsNullOrWhiteSpace($ToolsRoot)) {
+  $ToolsRoot = $defaultToolsRoot
+}
+
+$ToolsRoot = Resolve-FileSystemPath -Path $ToolsRoot
 $userHome = [Environment]::GetFolderPath('UserProfile')
 $localAppData = [Environment]::GetFolderPath('LocalApplicationData')
 $configRoot = Join-Path $userHome '.wezterm-config'
@@ -38,6 +55,74 @@ $windowsPluginArchiveRoot = Join-Path $repoDownloadsRoot 'windows\editor-plugins
 $windowsMasonArchiveRoot = Join-Path $repoDownloadsRoot 'windows\editor-mason'
 $windowsParserArchiveRoot = Join-Path $repoDownloadsRoot 'windows\editor-parsers'
 
+function New-ShortTemporaryDirectory {
+  $driveRoot = [System.IO.Path]::GetPathRoot($repoRoot)
+  $tempBaseRoot = Join-Path $driveRoot 'wz'
+  $tempRoot = Join-Path $tempBaseRoot 't'
+  $tempName = [System.Guid]::NewGuid().ToString('N').Substring(0, 8)
+  $tempPath = Join-Path $tempRoot $tempName
+
+  New-Item -ItemType Directory -Path $tempRoot -Force | Out-Null
+  New-Item -ItemType Directory -Path $tempPath -Force | Out-Null
+  return $tempPath
+}
+
+function Invoke-RobocopyDirectory {
+  param(
+    [Parameter(Mandatory = $true)]
+    [string]$Source,
+
+    [Parameter(Mandatory = $true)]
+    [string]$Destination
+  )
+
+  $robocopyCommand = Get-Command robocopy.exe -ErrorAction SilentlyContinue
+  if (-not $robocopyCommand) {
+    Copy-Item -LiteralPath $Source -Destination $Destination -Recurse -Force
+    return
+  }
+
+  New-Item -ItemType Directory -Path $Destination -Force | Out-Null
+  $robocopyArgs = @(
+    $Source,
+    $Destination,
+    '/E',
+    '/R:2',
+    '/W:1',
+    '/NFL',
+    '/NDL',
+    '/NJH',
+    '/NJS',
+    '/NP'
+  )
+
+  & $robocopyCommand.Source @robocopyArgs | Out-Null
+  if ($LASTEXITCODE -ge 8) {
+    throw "robocopy failed with exit code $LASTEXITCODE while copying $Source to $Destination"
+  }
+}
+
+function Expand-ZipArchive {
+  param(
+    [Parameter(Mandatory = $true)]
+    [string]$ArchivePath,
+
+    [Parameter(Mandatory = $true)]
+    [string]$DestinationPath
+  )
+
+  $tarCommand = Get-Command tar.exe -ErrorAction SilentlyContinue
+  if ($tarCommand) {
+    & $tarCommand.Source -xf $ArchivePath -C $DestinationPath
+    if ($LASTEXITCODE -ne 0) {
+      throw "Failed to extract zip archive: $ArchivePath"
+    }
+    return
+  }
+
+  Expand-Archive -LiteralPath $ArchivePath -DestinationPath $DestinationPath -Force
+}
+
 function Copy-DirectoryContents {
   param(
     [Parameter(Mandatory = $true)]
@@ -54,7 +139,13 @@ function Copy-DirectoryContents {
   Get-ChildItem -LiteralPath $Source -Force |
     Where-Object { $ExcludeNames -notcontains $_.Name } |
     ForEach-Object {
-      Copy-Item -LiteralPath $_.FullName -Destination $Destination -Recurse -Force
+      $destinationPath = Join-Path $Destination $_.Name
+      if ($_.PSIsContainer) {
+        Invoke-RobocopyDirectory -Source $_.FullName -Destination $destinationPath
+      }
+      else {
+        Copy-Item -LiteralPath $_.FullName -Destination $destinationPath -Force
+      }
     }
 }
 
@@ -167,17 +258,22 @@ function Expand-ArchiveDirectoryContents {
       return
     }
 
-    $tempExtractRoot = Join-Path $env:TEMP ([System.Guid]::NewGuid().ToString())
-    New-Item -ItemType Directory -Path $tempExtractRoot -Force | Out-Null
+    $tempExtractRoot = New-ShortTemporaryDirectory
 
     try {
-      Expand-Archive -LiteralPath $_.FullName -DestinationPath $tempExtractRoot -Force
+      Expand-ZipArchive -ArchivePath $_.FullName -DestinationPath $tempExtractRoot
       $topLevel = Get-ChildItem -LiteralPath $tempExtractRoot -Force | Select-Object -First 1
       if (-not $topLevel) {
         throw "Archive was empty: $($_.FullName)"
       }
 
-      Move-Item -LiteralPath $topLevel.FullName -Destination $destinationPath
+      if ($topLevel.PSIsContainer) {
+        Copy-DirectoryContents -Source $topLevel.FullName -Destination $destinationPath
+      }
+      else {
+        Initialize-PortableDirectory -Path $destinationPath
+        Copy-Item -LiteralPath $topLevel.FullName -Destination (Join-Path $destinationPath $topLevel.Name) -Force
+      }
       $installedCount += 1
     }
     finally {
@@ -238,11 +334,10 @@ function Install-ZipArchiveIntoDirectory {
     return $false
   }
 
-  $tempExtractRoot = Join-Path $env:TEMP ([System.Guid]::NewGuid().ToString())
-  New-Item -ItemType Directory -Path $tempExtractRoot -Force | Out-Null
+  $tempExtractRoot = New-ShortTemporaryDirectory
 
   try {
-    Expand-Archive -LiteralPath $ArchivePath -DestinationPath $tempExtractRoot -Force
+    Expand-ZipArchive -ArchivePath $ArchivePath -DestinationPath $tempExtractRoot
     $sourceRoot = Get-ArchiveContentRoot -ExtractRoot $tempExtractRoot
 
     if ($ClearDestination -and (Test-Path -LiteralPath $Destination)) {
@@ -276,8 +371,7 @@ function Install-TarArchiveIntoDirectory {
     throw 'tar.exe is required to install .tar.xz archives.'
   }
 
-  $tempExtractRoot = Join-Path $env:TEMP ([System.Guid]::NewGuid().ToString())
-  New-Item -ItemType Directory -Path $tempExtractRoot -Force | Out-Null
+  $tempExtractRoot = New-ShortTemporaryDirectory
 
   try {
     & $tarCommand.Source -xf $ArchivePath -C $tempExtractRoot
@@ -312,11 +406,10 @@ function Install-ZipArchiveContentsIntoDirectory {
     return $false
   }
 
-  $tempExtractRoot = Join-Path $env:TEMP ([System.Guid]::NewGuid().ToString())
-  New-Item -ItemType Directory -Path $tempExtractRoot -Force | Out-Null
+  $tempExtractRoot = New-ShortTemporaryDirectory
 
   try {
-    Expand-Archive -LiteralPath $ArchivePath -DestinationPath $tempExtractRoot -Force
+    Expand-ZipArchive -ArchivePath $ArchivePath -DestinationPath $tempExtractRoot
     $sourceRoot = Get-ArchiveContentRoot -ExtractRoot $tempExtractRoot
     Initialize-PortableDirectory -Path $Destination
     Copy-DirectoryContents -Source $sourceRoot -Destination $Destination
@@ -470,7 +563,7 @@ if (Test-Path $weztermRoot) {
 }
 
 Copy-Item (Join-Path $repoRoot '.wezterm.lua') $loaderPath -Force
-Copy-Item $repoWeztermRoot $weztermRoot -Recurse -Force
+Copy-DirectoryContents -Source $repoWeztermRoot -Destination $weztermRoot
 
 if (Test-Path $repoDownloadsRoot) {
   if (Test-Path $downloadsRoot) {
@@ -478,7 +571,7 @@ if (Test-Path $repoDownloadsRoot) {
   }
 
   New-Item -ItemType Directory -Path $downloadsRoot -Force | Out-Null
-  Copy-Item (Join-Path $repoDownloadsRoot '*') $downloadsRoot -Recurse -Force
+  Copy-DirectoryContents -Source $repoDownloadsRoot -Destination $downloadsRoot
 }
 
 $lazyVimBackup = $null

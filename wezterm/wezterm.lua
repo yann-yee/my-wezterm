@@ -27,12 +27,22 @@ local tab_palette = {
 }
 
 local user_profile = os.getenv("USERPROFILE")
-local tools_root = os.getenv("WEZTERM_TOOLS_ROOT") or "C:\\Users\\qwer\\Desktop\\WezTerm\\Tools"
-local config_root = user_profile and (user_profile .. "\\.wezterm-config\\wezterm") or nil
-local git_bash = "C:\\Program Files\\Git\\bin\\bash.exe"
-local bash_rc = config_root and (config_root .. "\\shell\\bashrc") or nil
-local starship_config = config_root and (config_root .. "\\starship.toml") or nil
-local font_root = tools_root .. "\\JetBrainsMono"
+local home_dir = user_profile or os.getenv("HOME")
+local is_windows = wezterm.target_triple and wezterm.target_triple:find("windows") ~= nil
+local path_sep = is_windows and "\\" or "/"
+local path_list_sep = is_windows and ";" or ":"
+local unpack_fn = table.unpack or unpack
+
+local function join_path(...)
+	return table.concat({ ... }, path_sep)
+end
+
+local tools_root = os.getenv("WEZTERM_TOOLS_ROOT") or (home_dir and join_path(home_dir, "WezTerm", "Tools")) or (is_windows and "C:\\WezTerm\\Tools" or "/opt/WezTerm/Tools")
+local config_root = home_dir and join_path(home_dir, ".wezterm-config", "wezterm") or nil
+local shell_prog = is_windows and "C:\\Program Files\\Git\\bin\\bash.exe" or "/usr/bin/env"
+local bash_rc = config_root and join_path(config_root, "shell", "bashrc") or nil
+local starship_config = config_root and join_path(config_root, "starship.toml") or nil
+local font_root = join_path(tools_root, "JetBrainsMono")
 
 local function file_exists(path)
 	local handle = io.open(path, "r")
@@ -45,7 +55,7 @@ local function file_exists(path)
 end
 
 local function path_join(...)
-	return table.concat({ ... }, ";")
+	return table.concat({ ... }, path_list_sep)
 end
 
 local function tab_title(tab)
@@ -86,14 +96,14 @@ end)
 
 local tool_paths = {
 	tools_root,
-	tools_root .. "\\nvim\\bin",
-	tools_root .. "\\ripgrep",
-	tools_root .. "\\fd",
-	tools_root .. "\\lazygit",
-	tools_root .. "\\yazi",
-	tools_root .. "\\bat",
-	tools_root .. "\\eza",
-	tools_root .. "\\starship",
+	join_path(tools_root, "nvim", "bin"),
+	join_path(tools_root, "ripgrep"),
+	join_path(tools_root, "fd"),
+	join_path(tools_root, "lazygit"),
+	join_path(tools_root, "yazi"),
+	join_path(tools_root, "bat"),
+	join_path(tools_root, "eza"),
+	join_path(tools_root, "starship"),
 }
 
 config.default_cwd = user_profile
@@ -135,7 +145,7 @@ config.colors = {
 		inactive_tab_edge = palette.chrome,
 	},
 }
-if file_exists(font_root .. "\\JetBrainsMonoNerdFontMono-Regular.ttf") then
+if file_exists(join_path(font_root, "JetBrainsMonoNerdFontMono-Regular.ttf")) then
 	config.font_dirs = { font_root }
 end
 config.font = wezterm.font_with_fallback({
@@ -146,7 +156,9 @@ config.font = wezterm.font_with_fallback({
 config.font_size = 12.0
 config.window_background_opacity = 0.88
 config.text_background_opacity = 0.92
-config.win32_system_backdrop = "Acrylic"
+if is_windows then
+	config.win32_system_backdrop = "Acrylic"
+end
 config.window_decorations = "INTEGRATED_BUTTONS|RESIZE"
 config.window_close_confirmation = "NeverPrompt"
 config.integrated_title_button_alignment = "Right"
@@ -188,50 +200,105 @@ config.window_padding = {
 config.set_environment_variables = {
 	WEZTERM_TOOLS_ROOT = tools_root,
 	STARSHIP_CONFIG = starship_config,
-	PATH = path_join(table.concat(tool_paths, ";"), os.getenv("PATH") or ""),
+	PATH = path_join(table.concat(tool_paths, path_list_sep), os.getenv("PATH") or ""),
 }
 
-if bash_rc and file_exists(git_bash) and file_exists(bash_rc) then
-	config.default_prog = {
-		git_bash,
-		"--noprofile",
-		"--rcfile",
-		bash_rc,
-		"-i",
-	}
+if bash_rc and file_exists(bash_rc) and file_exists(shell_prog) then
+	local bash_args
+	local lazygit_args
+	local yazi_args
+	local nvim_args
+	local shell_label
 
+	if is_windows then
+		bash_args = {
+			shell_prog,
+			"--noprofile",
+			"--rcfile",
+			bash_rc,
+			"-i",
+		}
+		lazygit_args = {
+			shell_prog,
+			"--noprofile",
+			"--rcfile",
+			bash_rc,
+			"-ic",
+			"exec lazygit",
+		}
+		yazi_args = {
+			shell_prog,
+			"--noprofile",
+			"--rcfile",
+			bash_rc,
+			"-ic",
+			"exec nvim",
+		}
+		shell_label = "Git Bash"
+	else
+		bash_args = {
+			shell_prog,
+			"bash",
+			"--noprofile",
+			"--rcfile",
+			bash_rc,
+			"-i",
+		}
+		lazygit_args = {
+			shell_prog,
+			"bash",
+			"--noprofile",
+			"--rcfile",
+			bash_rc,
+			"-ic",
+			"exec lazygit",
+		}
+		yazi_args = {
+			shell_prog,
+			"bash",
+			"--noprofile",
+			"--rcfile",
+			bash_rc,
+			"-i",
+		}
+		lazygit_args = {
+			shell_prog,
+			"bash",
+			"--noprofile",
+			"--rcfile",
+			bash_rc,
+			"-ic",
+			"exec yazi",
+		}
+		nvim_args = {
+			shell_prog,
+			"bash",
+			"--noprofile",
+			"--rcfile",
+			bash_rc,
+			"-ic",
+			"exec nvim",
+		}
+		shell_label = "Bash"
+	end
+
+	config.default_prog = bash_args
 	config.launch_menu = {
 		{
-			label = "Git Bash",
-			args = {
-				git_bash,
-				"--noprofile",
-				"--rcfile",
-				bash_rc,
-				"-i",
-			},
+			label = shell_label,
+			args = bash_args,
 		},
 		{
 			label = "LazyGit",
-			args = {
-				git_bash,
-				"--noprofile",
-				"--rcfile",
-				bash_rc,
-				"-ic",
-				"exec lazygit",
-			},
+			args = lazygit_args,
 		},
 		{
 			label = "Yazi",
-			args = {
-				git_bash,
-				"--noprofile",
-				"--rcfile",
-				bash_rc,
-				"-ic",
-				"exec yazi",
-			},
+			args = yazi_args,
+		},
+		{
+			label = "Neovim",
+			args = nvim_args,
 		},
 	}
 end

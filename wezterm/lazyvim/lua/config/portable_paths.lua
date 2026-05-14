@@ -7,9 +7,12 @@ function M.normalize(path)
 end
 
 function M.tools_root()
-  local tools_root = M.normalize(vim.env.WEZTERM_TOOLS_ROOT_WIN or vim.env.WEZTERM_TOOLS_ROOT)
+  local tools_root = M.normalize(vim.env.WEZTERM_TOOLS_ROOT or vim.env.WEZTERM_TOOLS_ROOT_WIN)
   if not tools_root and vim.env.USERPROFILE then
-    tools_root = M.normalize(vim.env.USERPROFILE .. "\\Desktop\\WezTerm\\Tools")
+    tools_root = M.normalize(vim.env.USERPROFILE .. "\\WezTerm\\Tools")
+  end
+  if not tools_root and vim.env.HOME then
+    tools_root = M.normalize(vim.env.HOME .. "/WezTerm/Tools")
   end
 
   return tools_root
